@@ -390,5 +390,17 @@
         "history": {
             "v1.0": "支持清理QB中已下载的订阅文件"
         }
+    },
+    "Brush4Seed": {
+        "name": "刷流保种",
+        "description":"刷流保种自动化",
+        "labels":"刷流",
+        "version": "0.1.0",
+        "icon": "brush.jpg",
+        "author": "2017fighting",
+        "level": 2,
+        "history": {
+            "v0.1.0": "实现基本功能"
+        }
     }
 }
