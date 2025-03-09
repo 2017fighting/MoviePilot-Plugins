@@ -395,11 +395,12 @@
         "name": "刷流保种",
         "description":"刷流保种自动化",
         "labels":"刷流",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "icon": "brush.jpg",
         "author": "2017fighting",
         "level": 2,
         "history": {
+            "v0.1.1": "单文件发布",
             "v0.1.0": "实现基本功能"
         }
     }
