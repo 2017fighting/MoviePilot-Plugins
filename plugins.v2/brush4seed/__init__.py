@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import parse_qs, urlparse
 
 import pytz
+from app import schemas
 from app.chain.download import DownloadChain
 from app.chain.torrents import TorrentsChain
 from app.core.cache import cached
@@ -440,7 +441,7 @@ class SiteService:
         # 排序
         for torrent in torrents:
             torrent.brush4seed_score = sort_key_for_brush(torrent)
-        logger.debug(f"站点:{site_type}\n{torrents=}")
+        logger.info(f"站点:{site_type}\n{torrents=}")
         torrents.sort(key=lambda x: x.brush4seed_score, reverse=True)
         return torrents
 
@@ -609,6 +610,14 @@ class TagTorrentAction(EditTorrentActionBase):
         self.tag = tag
 
 
+class RemoveTagTorrentAction(EditTorrentActionBase):
+    tags: List[str]
+
+    def __init__(self, torrent_hash: str, tags: List[str]):
+        super().__init__(torrent_hash)
+        self.tags = tags
+
+
 class DeleteTorrentAction(EditTorrentActionBase):
     pass
 
@@ -650,7 +659,8 @@ class DownloaderService:
         for torrent in self.get_seeding_torrents():
             assert isinstance(torrent, TorrentDictionary)
             site_type = TorrentService.get_site_type(self.brush4seed_config, torrent)
-            assert site_type is not None
+            if site_type is None:
+                continue
             site2seeding_size[site_type] += torrent.size
         return site2seeding_size
 
@@ -699,6 +709,7 @@ class DownloaderService:
 
     def bulk_execute_actions(self, torrent_actions: List[TorrentActionBase]):
         tag_actions = []
+        remove_tag_actions = []
         delete_actions = []
         stop_actions = []
         add_actions = []
@@ -711,6 +722,8 @@ class DownloaderService:
                 if action.torrent_hash in hashes2delete:
                     continue
                 tag_actions.append(action)
+            elif isinstance(action, RemoveTagTorrentAction):
+                remove_tag_actions.append(action)
             elif isinstance(action, StopTorrentAction):
                 if action.torrent_hash in hashes2delete:
                     continue
@@ -727,6 +740,9 @@ class DownloaderService:
             self._torrents_delete(delete_action_chunk)
         for tag_action_chunk in chunks(tag_actions, chunk_size):
             self._torrents_add_tags(tag_action_chunk)
+        for remove_tag_action in remove_tag_actions:
+            self._torrents_delete_tags(remove_tag_action)
+
         for stop_action_chunk in chunks(stop_actions, chunk_size):
             self._torrents_stop(stop_action_chunk)
         self._torrents_add(add_actions)
@@ -815,6 +831,11 @@ class DownloaderService:
             self.downloader.qbc.torrents_add_tags(
                 tags=[tag], torrent_hashes=torrent_hashes
             )
+
+    def _torrents_delete_tags(self, action: RemoveTagTorrentAction):
+        self.downloader.qbc.torrents_remove_tags(
+            tags=action.tags, torrent_hashes=action.torrent_hash
+        )
 
     def _torrents_delete(self, torrent_delete_actions: List[DeleteTorrentAction]):
         self.downloader.qbc.torrents_delete(
@@ -1153,6 +1174,7 @@ class TorrentLog:
 class DataService:
     PLUGIN_ID = "Brush4Seed"
     _TORRENT_LOG_KEY = "torrents_log"
+    _TORRENTS_KEY = "torrents"
     _SNAPSHOT_KEY = "snapshot_today"
     lock = threading.Lock()
 
@@ -1188,7 +1210,12 @@ class DataService:
         return [TorrentLog(**d) for d in data]
 
     @classmethod
+    def clear_torrent_logs(cls):
+        cls._save_data(cls._TORRENT_LOG_KEY, [])
+
+    @classmethod
     def save_torrent_log(cls, torrent_log: List[TorrentLog]):
+        logger.info(f"save torrent log {torrent_log}")
         with cls.lock:
             old_torrent_logs = cls.get_torrent_logs()
             # 由旧到新的顺序
@@ -1201,8 +1228,12 @@ class DataService:
             )
 
     @classmethod
+    def get_torrents(cls):
+        return cls._get_data(cls._TORRENTS_KEY) or {}
+
+    @classmethod
     def get_free_end_time(cls, torrent_hash) -> Optional[int]:
-        db_torrents = cls._get_data("torrents") or {}
+        db_torrents = cls.get_torrents()
         torrent_info = db_torrents.get(torrent_hash)
         if not torrent_info:
             return None
@@ -1213,7 +1244,7 @@ class DataService:
     @classmethod
     def save_free_end_time(cls, torrent_hash, free_end_time):
         with cls.lock:
-            db_torrents = cls._get_data("torrents") or {}
+            db_torrents = cls.get_torrents()
             torrent_data = db_torrents.get(torrent_hash) or {}
             torrent_data["free_end_time"] = free_end_time
             cls._save_data("torrents", db_torrents)
@@ -1384,11 +1415,11 @@ class TorrentsCheckerBase:
             if torrent._torrent_hash is None:
                 logger.error("种子没有hash", torrent)
                 continue
-            actions, torrent_logs = check_func(torrent)
+            actions, tlogs = check_func(torrent)
             if not actions:
                 continue
             torrent_actions.extend(actions)
-            torrent_logs.extend(torrent_logs)
+            torrent_logs.extend(tlogs)
         DataService.save_torrent_log(torrent_logs)
         return torrent_actions
 
@@ -1410,9 +1441,10 @@ class AllTorrentsChecker(TorrentsCheckerBase):
 
     @staticmethod
     def _check_site_tag(torrent, brush4seed_config: Brush4SeedConfig = None):
-        site_tag = TorrentService.get_site_tag(brush4seed_config, torrent)
-        if site_tag is not None:
-            return [], []
+        torrent_actions = []
+        torrent_logs = []
+
+        old_tag_list = TorrentService.get_tag_list(torrent)
         first_tracker = TorrentService.get_first_tracker(torrent)
         site_type = SiteService.get_site_type_by_tracker(
             brush4seed_config.sites, first_tracker
@@ -1421,14 +1453,37 @@ class AllTorrentsChecker(TorrentsCheckerBase):
             new_tag = f"{brush4seed_config.site_tag_prefix}{site_type}"
         else:
             new_tag = ErrorTag.INVALID_TRACKER
-        return [TagTorrentAction(torrent._torrent_hash, new_tag)], [
-            TorrentLog.new_log(
-                site_type,
-                torrent._torrent_hash,
-                description=f"手动添加，新增标签{new_tag}",
-                torrent_name=torrent.name,
+        if new_tag not in old_tag_list:
+            torrent_actions.append(TagTorrentAction(torrent._torrent_hash, new_tag))
+            torrent_logs.append(
+                TorrentLog.new_log(
+                    site_type or "-",
+                    torrent._torrent_hash,
+                    description=f"手动添加，新增标签{new_tag}",
+                    torrent_name=torrent.name,
+                )
             )
+        # 删除之前添加的 site:xxx 和 ErrorTag.INVALID_TRACKER
+        other_tags = set(old_tag_list) - set([brush4seed_config.managed_tag, new_tag])
+        useless_tags = [
+            tag
+            for tag in other_tags
+            if tag.startswith(brush4seed_config.site_tag_prefix)
+            or tag in (ErrorTag.INVALID_TRACKER)
         ]
+        if useless_tags:
+            torrent_actions.append(
+                RemoveTagTorrentAction(torrent._torrent_hash, useless_tags)
+            )
+            torrent_logs.append(
+                TorrentLog.new_log(
+                    site_type or "-",
+                    torrent._torrent_hash,
+                    description=f"删除多余标签，{useless_tags}",
+                    torrent_name=torrent.name,
+                )
+            )
+        return torrent_actions, torrent_logs
 
 
 class SeedingTorrentsChecker(TorrentsCheckerBase):
@@ -1662,7 +1717,8 @@ class BrushService:
         for torrent in self.downloader_service.get_seeding_torrents():
             assert isinstance(torrent, TorrentDictionary)
             site_type = TorrentService.get_site_type(self.brush4seed_config, torrent)
-            assert site_type is not None
+            if site_type is None:
+                continue
             site2current_seeding_size[site_type] += torrent.size
             site2torrents[site_type].append(torrent)
         site2over_seeding_size = self.downloader_service.get_site2over_seeding_size(
@@ -1784,7 +1840,7 @@ class Brush4Seed(_PluginBase):
     plugin_name = "刷流保种"
     plugin_desc = "刷流保种自动化"
     plugin_order = 99
-    plugin_version = "0.1.1"
+    plugin_version = "0.1.2"
 
     lock = threading.Lock()
     brush4seed_config: Brush4SeedConfig
@@ -1808,7 +1864,36 @@ class Brush4Seed(_PluginBase):
         return []
 
     def get_api(self) -> List[Dict[str, Any]]:
-        return []
+        def _clear_log():
+            DataService.clear_torrent_logs()
+            return schemas.Response(success=True, message="成功")
+
+        def _debug_data():
+            return schemas.Response(
+                success=True,
+                data={
+                    "torrents": DataService.get_torrents(),
+                    "torrent_los": DataService.get_torrent_logs(),
+                    "snapshot": DataService.get_snapshot(),
+                },
+            )
+
+        return [
+            {
+                "path": "/clear_torrent_log",
+                "endpoint": _clear_log,
+                "methods": ["GET"],
+                "summary": "清空torrent log",
+                "description": "清空torrent log",
+            },
+            {
+                "path": "/debug",
+                "endpoint": _debug_data,
+                "methods": ["GET"],
+                "summary": "debug",
+                "description": "debug",
+            },
+        ]
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         components = self.form_service.get_components()
