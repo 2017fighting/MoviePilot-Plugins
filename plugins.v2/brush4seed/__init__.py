@@ -1011,7 +1011,7 @@ class FormService:
                         VTextField(
                             model="cron_expr_list",
                             label="执行周期",
-                            placeholder="支持多个，逗号分隔，如果想工作日和假期不同频率，则类似于：15/45 * * * 1-5,15 * * * 0,6",
+                            placeholder="支持多个，竖线分隔，如果想工作日和假期不同频率，则类似于：15/45 * * * mon-fri|15 * * * sat,sun",
                         ),
                     )
                 ),
