@@ -1797,7 +1797,7 @@ class Brush4Seed(_PluginBase):
         self.brush_service = None
         if self.brush4seed_config.plugin_enable:
             self.brush_service = BrushService(self.brush4seed_config)
-        self.form_service = FormService()
+        self.form_service = FormService(self.brush4seed_config)
         self.page_service = PageService(self.brush4seed_config)
 
     def get_state(self):
