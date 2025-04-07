@@ -735,7 +735,7 @@ class DownloaderService:
         return site2left_seeding_size
 
     def get_site2over_seeding_size(
-        self, site2current_seeding_size=None
+        self, site2current_seeding_size=None, only_over_seeding=True
     ) -> Dict[str, int]:
         # 站点->该站点比设置的保种体积多了多少(单位bytes)，仅返回多做种的站点
         if site2current_seeding_size is None:
@@ -747,7 +747,7 @@ class DownloaderService:
         for site_type, target_seeding_size in site2target_seeding_size.items():
             current_seeding_size = site2current_seeding_size.get(site_type) or 0
             over_seeding_size = current_seeding_size - target_seeding_size
-            if over_seeding_size <= 0:
+            if only_over_seeding and over_seeding_size <= 0:
                 continue
             site2over_seeding_size[site_type] = over_seeding_size
         return site2over_seeding_size
@@ -1902,7 +1902,7 @@ class DeleteService:
         all_file_list.sort(key=lambda f:f["score_sum"])
         may_delete_file_list = []
         may_delete_size_in_byte = 0
-        site2over_seeding_size = self.downloader_service.get_site2over_seeding_size(site2current_seeding_size=site2seeding_size)
+        site2over_seeding_size = self.downloader_service.get_site2over_seeding_size(site2current_seeding_size=site2seeding_size, only_over_seeding=False)
         for may_delete_file in all_file_list:
             can_delete = self._update_site2over_seeding_size(site2over_seeding_size, may_delete_file)
             # 删除这个种子后有站点达不到做种体积了
@@ -2073,7 +2073,20 @@ class BrushService:
             # 达到预期要求
             if len(torrents_to_add) >= cnt_for_add:
                 break
+            # 所有站点的种子都遍历了一遍，仍然没达到预期个数
+            if self.no_site_new_torrent_left(site2new_torrents):
+                break
         return torrents_to_add
+    
+    def no_site_new_torrent_left(self, site2new_torrents):
+        for new_torrents in site2new_torrents.values():
+            # 还没获取这个站点的种子
+            if new_torrents is None:
+                return False
+            # 这个站点还有种子没遍历
+            if new_torrents:
+                return False
+        return True
 
     def _clean_space(self, space_need_to_clean):
         site2current_seeding_size = defaultdict(int)
@@ -2251,7 +2264,7 @@ class Brush4Seed(_PluginBase):
 
         return [
             {
-                "path": "/clear_torrent_log",
+                "path": "/clear_log",
                 "endpoint": _clear_log,
                 "methods": ["GET"],
                 "summary": "清空torrent log",
