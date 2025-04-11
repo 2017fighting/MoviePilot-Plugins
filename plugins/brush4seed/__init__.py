@@ -2054,6 +2054,12 @@ class BrushService:
         torrents_to_add = []
         # 按照站点的抽取结果取站点的种子，每次都取这个站点的第一个种子（前面已经对种子按照sort.sort_key_for_brush进行排序了）
         for site_type in choice_with_weight(brush_sites,site2choice_wieght):
+            # 所有站点的种子都遍历了一遍，仍然没达到预期个数
+            if self.no_site_new_torrent_left(site2new_torrents):
+                break
+            # 达到预期要求
+            if len(torrents_to_add) >= cnt_for_add:
+                break
             if site2new_torrents[site_type] is None:
                 site2new_torrents[site_type] = self.site_service.get_torrents_for_brush(site_type)
             site_new_torrents = site2new_torrents[site_type]
@@ -2070,12 +2076,6 @@ class BrushService:
                     break
                 elif not site_new_torrents:
                     break
-            # 达到预期要求
-            if len(torrents_to_add) >= cnt_for_add:
-                break
-            # 所有站点的种子都遍历了一遍，仍然没达到预期个数
-            if self.no_site_new_torrent_left(site2new_torrents):
-                break
         return torrents_to_add
     
     def no_site_new_torrent_left(self, site2new_torrents):
