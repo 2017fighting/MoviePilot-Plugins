@@ -2222,7 +2222,7 @@ class Brush4Seed(_PluginBase):
     plugin_name = "刷流保种"
     plugin_desc = "刷流保种自动化"
     plugin_order = 99
-    plugin_version = "0.1.4"
+    plugin_version = "0.1.5"
 
     lock = threading.Lock()
     brush4seed_config: Brush4SeedConfig
