@@ -131,7 +131,8 @@ def sort_key_for_seed(
 
 def sort_key_for_brush(torrent: TorrentInfo):
     try:
-        if torrent.seeders <= 0:
+        # 最新发布的 如果只有一个人做种 经常会下载一两天也下载不完；这里确保不是只有一个人在做种
+        if torrent.seeders <= 2:
             return 0
         dl_ul_rate = math.log(float(torrent.peers) / torrent.seeders + 1)
         final_score = 100 * dl_ul_rate * torrent.uploadvolumefactor
@@ -667,7 +668,7 @@ class RemoveTagTorrentAction(EditTorrentActionBase):
 
 
 class DeleteTorrentAction(EditTorrentActionBase):
-    pass
+    delete_file: bool = True
 
 
 class StopTorrentAction(EditTorrentActionBase):
@@ -760,14 +761,14 @@ class DownloaderService:
     def bulk_execute_actions(self, torrent_actions: List[TorrentActionBase]):
         tag_actions = []
         remove_tag_actions = []
-        delete_actions = []
+        delete_file2delete_actions = defaultdict(list)
         stop_actions = []
         add_actions = []
         hashes2delete = set()
         for action in torrent_actions:
             if isinstance(action, DeleteTorrentAction):
                 hashes2delete.add(action.torrent_hash)
-                delete_actions.append(action)
+                delete_file2delete_actions[action.delete_file].append(action)
             elif isinstance(action, TagTorrentAction):
                 if action.torrent_hash in hashes2delete:
                     continue
@@ -786,8 +787,9 @@ class DownloaderService:
                 )
                 raise NotImplementedError
         chunk_size = 100  # 每次最多同时操作100个种子
-        for delete_action_chunk in chunks(delete_actions, chunk_size):
-            self._torrents_delete(delete_action_chunk)
+        for delete_file, delete_actions in delete_file2delete_actions.items():
+            for delete_action_chunk in chunks(delete_actions[0], chunk_size):
+                self._torrents_delete(delete_action_chunk, delete_file=delete_file)
         for tag_action_chunk in chunks(tag_actions, chunk_size):
             self._torrents_add_tags(tag_action_chunk)
         for remove_tag_action in remove_tag_actions:
@@ -887,9 +889,9 @@ class DownloaderService:
             tags=action.tags, torrent_hashes=action.torrent_hash
         )
 
-    def _torrents_delete(self, torrent_delete_actions: List[DeleteTorrentAction]):
+    def _torrents_delete(self, torrent_delete_actions: List[DeleteTorrentAction], delete_file=True):
         self.downloader.qbc.torrents_delete(
-            delete_files=True,
+            delete_files=delete_file,
             torrent_hashes=[action.torrent_hash for action in torrent_delete_actions],
         )
 
@@ -1615,6 +1617,12 @@ class AllTorrentsChecker(TorrentsCheckerBase):
                 ),
             )
         )
+        # tracker是否有效
+        logger.info("check tracker...")
+        self.downloader_service.bulk_execute_actions(
+            self._common_check(all_torrents, self._check_tracker)
+        )
+
 
     @staticmethod
     def _check_site_tag(torrent, brush4seed_config: Brush4SeedConfig = None):
@@ -1663,23 +1671,12 @@ class AllTorrentsChecker(TorrentsCheckerBase):
             )
         return torrent_actions, torrent_logs
 
-
-class SeedingTorrentsChecker(TorrentsCheckerBase):
-
-    def check(self):
-        # 1. tracker是否有效
-        logger.info("check tracker...")
-        seeding_torrents = self.downloader_service.get_seeding_torrents()
-        self.downloader_service.bulk_execute_actions(
-            self._common_check(seeding_torrents, self._check_tracker)
-        )
-
     @staticmethod
     def _check_tracker(torrent):
         # 根据tracker状态检查做种是否有效，如果无效，进行删除
         if TorrentService().check_trackers_validity(torrent.trackers):
             return [], []
-        return [DeleteTorrentAction(torrent._torrent_hash)], [
+        return [DeleteTorrentAction(torrent._torrent_hash, delete_file=False)], [
             TorrentLog.new_log(
                 "-",
                 torrent._torrent_hash,
@@ -1688,6 +1685,10 @@ class SeedingTorrentsChecker(TorrentsCheckerBase):
             )
         ]
 
+# class SeedingTorrentsChecker(TorrentsCheckerBase):
+
+#     def check(self):
+#         pass
 
 class DownloadingTorrentsChecker(TorrentsCheckerBase):
     def check(self, brush4seed_config):
@@ -1977,9 +1978,9 @@ class BrushService:
         # check site tag
         logger.info("「check all managed torrents」")
         AllTorrentsChecker(self.downloader_service).check(self.brush4seed_config)
-        # 1. check seeding torrents
-        logger.info("「check seeding torrents」")
-        SeedingTorrentsChecker(self.downloader_service).check()
+        # # 1. check seeding torrents
+        # logger.info("「check seeding torrents」")
+        # SeedingTorrentsChecker(self.downloader_service).check()
         # 2. check downloading torrents
         logger.info("「check 「downloading torrents」")
         DownloadingTorrentsChecker(self.downloader_service).check(
@@ -2017,9 +2018,11 @@ class BrushService:
     def _get_torrents_for_brush(
         self,
     ) -> List[TorrentInfo]:
-        downloading_cnt = len(
-            self.downloader_service.get_downloading_torrents()
-        )
+        downloading_torrents = self.downloader_service.get_downloading_torrents()
+        # 过滤掉暂停下载的种子
+        downloading_torrents = [torrent for torrent in downloading_torrents if torrent.state != "pausedDL"]
+        downloading_cnt = len(downloading_torrents)
+        
         cnt_for_add = self.brush4seed_config.max_downloads - downloading_cnt
         if cnt_for_add <= 0:
             logger.info(
