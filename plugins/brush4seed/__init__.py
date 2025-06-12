@@ -792,7 +792,7 @@ class DownloaderService:
                 raise NotImplementedError
         chunk_size = 100  # 每次最多同时操作100个种子
         for delete_file, delete_actions in delete_file2delete_actions.items():
-            for delete_action_chunk in chunks(delete_actions[0], chunk_size):
+            for delete_action_chunk in chunks(delete_actions, chunk_size):
                 self._torrents_delete(delete_action_chunk, delete_file=delete_file)
         for tag_action_chunk in chunks(tag_actions, chunk_size):
             self._torrents_add_tags(tag_action_chunk)
