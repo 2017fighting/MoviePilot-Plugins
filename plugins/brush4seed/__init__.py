@@ -669,6 +669,10 @@ class RemoveTagTorrentAction(EditTorrentActionBase):
 
 class DeleteTorrentAction(EditTorrentActionBase):
     delete_file: bool = True
+    
+    def __init__(self, torrent_hash, delete_file=True):
+        super().__init__(torrent_hash)
+        self.delete_file = delete_file
 
 
 class StopTorrentAction(EditTorrentActionBase):
