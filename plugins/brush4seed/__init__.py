@@ -1382,7 +1382,7 @@ class DataService:
     
     @classmethod
     def get_may_delete_file_list(cls):
-        return cls._get_data(cls._MAY_DELETE_FILE_LIST)
+        return cls._get_data(cls._MAY_DELETE_FILE_LIST) or []
 
     @classmethod
     def clear_may_delete_file_list(cls):
