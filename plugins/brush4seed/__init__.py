@@ -2228,6 +2228,7 @@ class Brush4Seed(_PluginBase):
     plugin_order = 99
     plugin_version = "0.1.5"
     plugin_author = "2017fighting"
+    author_url = "https://github.com/2017fighting/MoviePilot-Plugins"
 
     lock = threading.Lock()
     brush4seed_config: Brush4SeedConfig
