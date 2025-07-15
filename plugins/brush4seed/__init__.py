@@ -384,7 +384,7 @@ class Brush4SeedConfig(metaclass=Singleton):
             site_config_key = site_key_sps[2]
             origin_value = site_value
             if site_config_key == "trackers":
-                origin_value = site_value.split("\r\n")
+                origin_value = [i.strip() for i in site_value.split("\n")]
             tmp_sites[site_type][site_config_key] = origin_value
         self.sites = {}
 
