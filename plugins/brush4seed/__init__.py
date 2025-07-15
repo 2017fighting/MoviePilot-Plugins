@@ -2236,6 +2236,14 @@ class Brush4Seed(_PluginBase):
     def __init__(self):
         super().__init__()
 
+    def get_render_mode() -> Tuple[str, str]:
+        """
+        获取插件渲染模式
+        :return: 1、渲染模式，支持：vue/vuetify，默认vuetify
+        :return: 2、组件路径，默认 dist/assets
+        """
+        return "vue", "dist/assets"
+
     def init_plugin(self, config: dict = None):
         self.brush4seed_config = Brush4SeedConfig.init_by_plugin_config(config)
         self.brush_service = None

@@ -1,8 +1,8 @@
 {
     "Brush4Seed": {
         "name": "刷流保种",
-        "description":"刷流保种自动化",
-        "labels":"刷流",
+        "description": "刷流保种自动化",
+        "labels": "刷流",
         "version": "0.1.5",
         "icon": "brush.jpg",
         "author": "2017fighting",
@@ -16,5 +16,6 @@
             "v0.1.1": "单文件发布",
             "v0.1.0": "实现基本功能"
         }
-    }
+    },
+    "packageManager": "pnpm@10.12.4+sha512.5ea8b0deed94ed68691c9bad4c955492705c5eeb8a87ef86bc62c74a26b037b08ff9570f108b2e4dbd1dd1a9186fea925e527f141c648e85af45631074680184"
 }
