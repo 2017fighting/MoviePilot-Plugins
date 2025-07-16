@@ -1,0 +1,8 @@
+@use "placeholders";
+@use "variables" as core-vars;
+
+.layout-navbar {
+  @if core-vars.$navbar-high-emphasis-text {
+    @extend %layout-navbar;
+  }
+}

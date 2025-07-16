@@ -1,0 +1,44 @@
+@use "sass:map";
+
+// 基础变量和配置
+@use "variables";
+@use "mixins";
+@use "utils";
+
+// 布局相关
+@use "default-layout";
+@use "vertical-nav";
+@use "default-layout-w-vertical-nav";
+
+// 组件样式
+@use "components";
+
+// 工具类
+@use "utilities";
+
+// 其他样式
+@use "misc";
+@use "dark";
+
+// 第三方库样式
+@use "libs/perfect-scrollbar";
+@use "libs/apex-chart";
+@use "libs/full-calendar";
+@use "libs/vuetify";
+
+// 全局样式
+a {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+}
+
+// Vuetify 3 don't provide margin bottom style like vuetify 2
+p {
+  margin-block-end: 1rem;
+}
+
+// Iconify icon size
+svg.iconify {
+  block-size: 1em;
+  inline-size: 1em;
+}

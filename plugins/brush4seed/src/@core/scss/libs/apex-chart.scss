@@ -1,0 +1,105 @@
+@use "@configured-variables" as variables;
+@use "../mixins";
+
+// 👉 Apex chart
+.apexcharts-canvas {
+  // For RTL alignment
+  .apexcharts-yaxis-texts-g {
+    text-align: start;
+  }
+
+  // Tooltip
+  .apexcharts-tooltip {
+    line-height: 1.5;
+
+    .apexcharts-tooltip-title {
+      border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+      background: rgb(var(--v-theme-surface));
+      font-weight: 500;
+      margin-block-end: 0.25rem;
+      padding-inline: 1rem;
+    }
+
+    .apexcharts-tooltip-text {
+      display: flex;
+      align-items: center;
+      color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
+      font-size: inherit;
+      gap: 0.5rem;
+      line-height: inherit;
+    }
+
+    .apexcharts-tooltip-text-label,
+    .apexcharts-tooltip-text-value {
+      font-weight: 600;
+      line-height: 1.5;
+    }
+    
+    .apexcharts-tooltip-series-group {
+      padding-block: 0 0.5rem;
+      padding-inline: 1rem;
+
+      &:last-child {
+        padding-block-end: 1rem;
+      }
+
+      &.active {
+        padding-block-start: 0;
+      }
+    }
+
+    &.apexcharts-theme-light {
+      border-color: rgb(var(--v-border-color));
+      background: rgb(var(--v-theme-surface));
+      box-shadow: none;
+      
+      .apexcharts-tooltip-text-label,
+      .apexcharts-tooltip-text-value {
+        color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
+      }
+    }
+  }
+
+  .apexcharts-marker {
+    transition: none;
+  }
+
+  // 👉 stroke-dasharray
+  .apexcharts-radialbar,
+  .apexcharts-radialbar-slice-current {
+    stroke-linecap: round;
+  }
+
+  .apexcharts-xaxistooltip,
+  .apexcharts-yaxistooltip {
+    border-color: rgb(var(--v-border-color));
+    background: rgb(var(--v-theme-surface));
+    color: rgba(var(--v-theme-on-background), var(--v-medium-emphasis-opacity));
+
+    &::after,
+    &::before {
+      border-block-end-color: rgb(var(--v-border-color));
+    }
+  }
+
+  // 👉 Text color
+  .apexcharts-text,
+  .apexcharts-tooltip-text,
+  .apexcharts-datalabel-label,
+  .apexcharts-datalabel,
+  .apexcharts-xaxistooltip-text,
+  .apexcharts-yaxistooltip-text,
+  .apexcharts-legend-text {
+    color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity)) !important;
+    font-family: inherit !important;
+  }
+
+  // 👉 Annotation Label
+  .apexcharts-annotation-rect {
+    &.apexcharts-xaxis-annotation-rect,
+    &.apexcharts-yaxis-annotation-rect {
+      fill-opacity: 0.05;
+      stroke-opacity: 0;
+    }
+  }
+}

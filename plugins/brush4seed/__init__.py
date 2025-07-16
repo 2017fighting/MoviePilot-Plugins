@@ -2236,7 +2236,7 @@ class Brush4Seed(_PluginBase):
     def __init__(self):
         super().__init__()
 
-    def get_render_mode() -> Tuple[str, str]:
+    def get_render_mode(self) -> Tuple[str, str]:
         """
         获取插件渲染模式
         :return: 1、渲染模式，支持：vue/vuetify，默认vuetify
@@ -2299,6 +2299,12 @@ class Brush4Seed(_PluginBase):
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         components = self.form_service.get_components()
         model = self.form_service.get_model()
+        model = {
+            "target_downloader": "private",
+            "downloaders": [
+                "download", "private",
+            ]
+        }
         return (components, model)
 
     def get_page(self) -> List[dict]:

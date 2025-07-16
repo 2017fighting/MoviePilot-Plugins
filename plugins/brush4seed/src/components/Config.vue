@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, reactive, onMounted } from 'vue'
 // 接收初始配置和API对象
 const props = defineProps({
   initialConfig: {
@@ -12,8 +13,7 @@ const props = defineProps({
 })
 
 // 配置数据
-// const config = ref({...props.initialConfig})
-const config = props.initialConfig
+const config = ref({...props.initialConfig})
 
 // 自定义事件，用于保存配置
 const emit = defineEmits(['save', 'close', 'switch'])
@@ -35,17 +35,28 @@ function notifyClose() {
 </script>
 
 <template>
-  <div class="plugin-config">
-    <!-- 配置表单示例 -->
-    <v-text-field v-model="config.someField" label="配置项"></v-text-field>
-    
-    <!-- 保存按钮示例 -->
-    <v-btn color="primary" @click="saveConfig">保存配置</v-btn>
+  <VCard  title="刷流保种 - 配置">
+      <VDialogCloseBtn @click="emit('close')" />
+      <VDivider />
+      <VCardText>
+        <Form>
+          <VRow>
+            <VCol>
+              <VSelect :required="true" :model="config.downloader_name" :items="config.downloaders" label="下载器"></VSelect>
+            </VCol>
+          </VRow>
+        </Form>
+      </VCardText>
+      <VCardActions class="pt-3">
+        <VBtn @click="emit('switch')" color="info">
+          查看数据
+        </VBtn>
+        <VSpacer />
+        <!-- 只有Vuetify模式显示默认保存按钮，Vue模式由组件内部控制 -->
+        <VBtn @click="saveConfig" prepend-icon="mdi-content-save" class="px-5">
+          保存
+        </VBtn>
+      </VCardActions>
+    </VCard>
 
-    <!-- 关闭按钮示例 -->
-    <v-btn color="primary" @click="notifyClose">关闭页面</v-btn>
-
-    <!-- 切换按钮示例 -->
-    <v-btn color="primary" @click="notifySwitch">切换到详情页面</v-btn>
-  </div>
 </template>
